@@ -23,7 +23,7 @@ typedef struct dns_query{
 }DNS_QUERY;
 
 
-void sendDnsRequest(char *domain,char* target_ip){
+void sendDnsRequest(char *domain,char* target_ip,int sock){
 	//init dns header
 	DNS_HEADER dns_hd;
 	dns_hd.transaction_id = rand()%65536;
@@ -54,11 +54,10 @@ void sendDnsRequest(char *domain,char* target_ip){
 	dns_qr.class = htons(1);
 	printf("%s\n",dns_qr.name);
 	//udp
-	int sock = socket(AF_INET, SOCK_DGRAM, 0);
 	struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_port = htons(53);
-    addr.sin_addr.s_addr = inet_addr("192.168.199.105");
+    addr.sin_addr.s_addr = inet_addr(target_ip);
     int header_size = sizeof(dns_hd);
     int query_remain_size = sizeof(dns_qr)-sizeof(dns_qr.name);
     int dns_packet_size = header_size+query_name_size+query_remain_size;
@@ -78,6 +77,34 @@ void sendDnsRequest(char *domain,char* target_ip){
 	free(tmp);
 }
 
+void receiveDnsAnswer(int socket){
+	const int BUFFSIZE = 65515;//udp max size = 65535-20
+	u_char *dns_rp = malloc(BUFFSIZE);
+	memset(dns_rp,0,BUFFSIZE);
+	while(1){
+		int n = recvfrom(socket, dns_rp, BUFFSIZE, 0, NULL, 0);
+		if(n <= 0){
+			perror("receive arp error");
+			exit(1);
+		}else{
+			printf("received packet size:%i\n",n);
+		}
+	}
+	free(dns_rp);
+}
+
 void main(int argc,char **argv){
-	sendDns("www.laitouba.com");
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	// sendDnsRequest("www.laitouba.com","192.168.199.1",sock);
+	struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(53);
+    addr.sin_addr.s_addr = inet_addr("0.0.0.0");
+	int n = bind(sock,(struct sockaddr *)&addr, sizeof(addr));
+	if(n != 0){
+		printf("bind fail\n");
+		exit(0);
+	}
+	receiveDnsAnswer(sock);
+
 }
